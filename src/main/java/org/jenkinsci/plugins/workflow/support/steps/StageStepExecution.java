@@ -73,6 +73,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
                             // look for the stage there.
                             EnvironmentExpander.constant(Collections.singletonMap("STAGE_NAME", step.name))))
                     .withCallback(BodyExecutionCallback.wrap(getContext()))
+                    .withCallback(new StageMeasurementCallback())
                     .withDisplayName(step.name)
                     .start();
             return false;
@@ -350,6 +351,33 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
                 return;
             }
             exit(r);
+        }
+    }
+
+    private class StageMeasurementCallback extends BodyExecutionCallback {
+
+        private static final String SUCCESS = "SUCCESS";
+        private static final String FAILURE = "FAILURE";
+
+        private Long stageStartTimestamp;
+
+        @Override
+        public void onStart(StepContext context) {
+            this.stageStartTimestamp = System.currentTimeMillis();
+        }
+
+        @Override
+        public void onSuccess(StepContext stepContext, Object o) {
+            onComplete(SUCCESS, System.currentTimeMillis());
+        }
+
+        @Override
+        public void onFailure(StepContext stepContext, Throwable t) {
+            onComplete(FAILURE, System.currentTimeMillis());
+        }
+
+        public void onComplete(String result, Long completeTimestamp) {
+            run.addAction(new StageMeasurementAction(step.name, stageStartTimestamp, completeTimestamp, result));
         }
     }
 
